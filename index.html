@@ -379,16 +379,30 @@ async function startCamera(){
     return;
   }
   if(stream) return;
+  statusEl.textContent = 'Requesting camera access…';
   try{
-    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-    video.srcObject = stream;
-    await video.play();
-    scanning = true;
-    statusEl.textContent = 'Camera active — ready to scan';
-    requestAnimationFrame(scanLoop);
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } });
   }catch(e){
-    statusEl.textContent = 'Camera error: ' + e.message + ' (use https and allow camera access)';
+    statusEl.textContent = 'Camera error: ' + e.name + ' — ' + e.message;
+    return;
   }
+  video.muted = true;
+  video.setAttribute('autoplay','');
+  video.setAttribute('playsinline','');
+  video.srcObject = stream;
+
+  video.addEventListener('loadedmetadata', ()=>{
+    statusEl.textContent = 'Video stream received (' + video.videoWidth + 'x' + video.videoHeight + '). Starting…';
+  }, { once:true });
+
+  try{
+    await video.play();
+  }catch(e){
+    statusEl.textContent = 'Video could not autoplay: ' + e.message + ' — tap the video area.';
+    video.addEventListener('click', ()=>video.play(), { once:true });
+  }
+  scanning = true;
+  requestAnimationFrame(scanLoop);
 }
 document.getElementById('startCamera').addEventListener('click', startCamera);
 
