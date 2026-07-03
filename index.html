@@ -374,6 +374,10 @@ let scanning = false;
 async function startCamera(){
   const video = document.getElementById('video');
   const statusEl = document.getElementById('scanStatus');
+  if(typeof jsQR === 'undefined'){
+    statusEl.textContent = 'QR scanning library failed to load (check internet connection, then reload the page).';
+    return;
+  }
   if(stream) return;
   try{
     stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
@@ -393,22 +397,31 @@ const ctx = canvas.getContext('2d');
 let lastScannedCode = null;
 let lastScanTime = 0;
 
+let scanFrameCount = 0;
 function scanLoop(){
   const video = document.getElementById('video');
-  if(scanning && video.readyState === video.HAVE_ENOUGH_DATA){
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const imageData = ctx.getImageData(0,0,canvas.width,canvas.height);
-    const code = jsQR(imageData.data, imageData.width, imageData.height);
-    if(code && code.data){
-      const now = Date.now();
-      if(code.data !== lastScannedCode || now - lastScanTime > 3000){
-        lastScannedCode = code.data;
-        lastScanTime = now;
-        handleScan(code.data);
+  const statusEl = document.getElementById('scanStatus');
+  try{
+    if(scanning && video.readyState === video.HAVE_ENOUGH_DATA){
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const imageData = ctx.getImageData(0,0,canvas.width,canvas.height);
+      const code = jsQR(imageData.data, imageData.width, imageData.height);
+      scanFrameCount++;
+      if(code && code.data){
+        const now = Date.now();
+        if(code.data !== lastScannedCode || now - lastScanTime > 3000){
+          lastScannedCode = code.data;
+          lastScanTime = now;
+          handleScan(code.data);
+        }
+      } else if(!document.getElementById('resultOverlay').classList.contains('show')) {
+        statusEl.textContent = 'Camera active — scanning… (' + canvas.width + 'x' + canvas.height + ')';
       }
     }
+  }catch(err){
+    statusEl.textContent = 'Scan error: ' + err.message;
   }
   requestAnimationFrame(scanLoop);
 }
